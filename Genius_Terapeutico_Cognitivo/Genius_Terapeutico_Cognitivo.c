@@ -1,76 +1,76 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <ctype.h> 
-#include "pico/stdlib.h"
-#include "pico/binary_info.h"
-#include "hardware/gpio.h"
-#include "hardware/pwm.h"
-#include "hardware/adc.h"
-#include "hardware/i2c.h"
-#include "inc/ssd1306.h"
+#include <stdio.h>  // Inclui a biblioteca padrão de entrada e saída (para funções como printf)
+#include <string.h>  // Inclui a biblioteca para manipulação de strings (como memset, strcpy, etc.)
+#include <stdlib.h>  // Inclui a biblioteca padrão (para funções como rand, srand, etc.)
+#include <ctype.h>   // Inclui a biblioteca para manipulação de caracteres (como isdigit, toupper, etc.)
+#include "pico/stdlib.h"  // Inclui a biblioteca padrão do Raspberry Pi Pico (para funções como sleep_ms, gpio_init, etc.)
+#include "pico/binary_info.h"  // Inclui a biblioteca para informações binárias (usada para depuração)
+#include "hardware/gpio.h"  // Inclui a biblioteca para controle de GPIO (para configurar pinos como entrada/saída)
+#include "hardware/pwm.h"  // Inclui a biblioteca para controle de PWM (para gerar sinais de áudio no buzzer)
+#include "hardware/adc.h"  // Inclui a biblioteca para controle do ADC (para ler valores analógicos do joystick)
+#include "hardware/i2c.h"  // Inclui a biblioteca para controle do I2C (para comunicação com o display OLED)
+#include "inc/ssd1306.h"  // Inclui a biblioteca específica para controlar o display OLED SSD1306
 
 // Definições dos pinos
-#define LED_RED_PIN       13    // Pino do LED vermelho (GPIO 13)
-#define LED_GREEN_PIN     11    // Pino do LED verde (GPIO 11)
-#define LED_BLUE_PIN      12    // Pino do LED azul (GPIO 12)
-#define BUZZER_PIN        10    // Pino do buzzer (GPIO 10)
-#define BUTTON_A_PIN       5    // Pino do botão A (GPIO 5)
-#define BUTTON_B_PIN       6    // Pino do botão B (GPIO 6)
-#define JOYSTICK_X_PIN    26    // Pino do eixo X do joystick (GPIO 26, ADC0)
-#define JOYSTICK_Y_PIN    27    // Pino do eixo Y do joystick (GPIO 27, ADC1)
-#define I2C_SDA           14    // Pino SDA do I2C (GPIO 14)
-#define I2C_SCL           15    // Pino SCL do I2C (GPIO 15)
+#define LED_RED_PIN       13    // Define o pino do LED vermelho como GPIO 13
+#define LED_GREEN_PIN     11    // Define o pino do LED verde como GPIO 11
+#define LED_BLUE_PIN      12    // Define o pino do LED azul como GPIO 12
+#define BUZZER_PIN        10    // Define o pino do buzzer como GPIO 10
+#define BUTTON_A_PIN       5    // Define o pino do botão A como GPIO 5
+#define BUTTON_B_PIN       6    // Define o pino do botão B como GPIO 6
+#define JOYSTICK_X_PIN    26    // Define o pino do eixo X do joystick como GPIO 26 (ADC0)
+#define JOYSTICK_Y_PIN    27    // Define o pino do eixo Y do joystick como GPIO 27 (ADC1)
+#define I2C_SDA           14    // Define o pino SDA do I2C como GPIO 14
+#define I2C_SCL           15    // Define o pino SCL do I2C como GPIO 15
 
 // Frequências dos sons (em Hz)
-#define NOTE_C4  2000  // Dó
-#define NOTE_D4  2500  // Ré
-#define NOTE_E4  3000  // Mi
-#define NOTE_F4  3500  // Fá
-#define NOTE_G4  4000  // Sol (som de início)
-#define NOTE_A4  4500  // Lá (som de erro)
+#define NOTE_C4  2000  // Define a frequência da nota Dó (C4) como 2000 Hz
+#define NOTE_D4  2500  // Define a frequência da nota Ré (D4) como 2500 Hz
+#define NOTE_E4  3000  // Define a frequência da nota Mi (E4) como 3000 Hz
+#define NOTE_F4  3500  // Define a frequência da nota Fá (F4) como 3500 Hz
+#define NOTE_G4  4000  // Define a frequência da nota Sol (G4) como 4000 Hz (som de início)
+#define NOTE_A4  4500  // Define a frequência da nota Lá (A4) como 4500 Hz (som de erro)
 
 // Duração dos sons (em ms)
-#define NOTE_DURATION 200
+#define NOTE_DURATION 200  // Define a duração padrão de cada nota como 200 ms
 
 // Estados das cores
 typedef enum {
-    MAGENTA, 
-    GREEN,
-    BLUE,
-    YELLOW,
-    NUM_COLORS  // Número total de cores
+    MAGENTA,  // Define o estado da cor magenta
+    GREEN,    // Define o estado da cor verde
+    BLUE,     // Define o estado da cor azul
+    YELLOW,   // Define o estado da cor amarela
+    NUM_COLORS  // Define o número total de cores (usado para desligar os LEDs)
 } ColorState;
 
 // Variáveis globais para PWM
-uint slice_num;
-uint channel;
+uint slice_num;  // Armazena o número do slice PWM usado para o buzzer
+uint channel;    // Armazena o canal PWM usado para o buzzer
 
 // Variável global para o número de rodadas
-int total_rounds = 1;  // Número de rodadas escolhido pelo usuário
+int total_rounds = 1;  // Define o número inicial de rodadas como 1
 
 // Função para acender o LED RGB com base no estado
 void set_rgb_color(ColorState color) {
     switch (color) {
         case MAGENTA:
-            gpio_put(LED_RED_PIN, 1);   // Vermelho
-            gpio_put(LED_GREEN_PIN, 0); // Verde desligado
-            gpio_put(LED_BLUE_PIN, 1);  // Azul (combina com vermelho para magenta)
+            gpio_put(LED_RED_PIN, 1);   // Acende o LED vermelho
+            gpio_put(LED_GREEN_PIN, 0); // Desliga o LED verde
+            gpio_put(LED_BLUE_PIN, 1);  // Acende o LED azul (combina com vermelho para magenta)
             break;
         case GREEN:
-            gpio_put(LED_RED_PIN, 0);   // Vermelho desligado
-            gpio_put(LED_GREEN_PIN, 1); // Verde
-            gpio_put(LED_BLUE_PIN, 0);  // Azul desligado
+            gpio_put(LED_RED_PIN, 0);   // Desliga o LED vermelho
+            gpio_put(LED_GREEN_PIN, 1); // Acende o LED verde
+            gpio_put(LED_BLUE_PIN, 0);  // Desliga o LED azul
             break;
         case BLUE:
-            gpio_put(LED_RED_PIN, 0);   // Vermelho desligado
-            gpio_put(LED_GREEN_PIN, 0); // Verde desligado
-            gpio_put(LED_BLUE_PIN, 1);  // Azul
+            gpio_put(LED_RED_PIN, 0);   // Desliga o LED vermelho
+            gpio_put(LED_GREEN_PIN, 0); // Desliga o LED verde
+            gpio_put(LED_BLUE_PIN, 1);  // Acende o LED azul
             break;
         case YELLOW:
-            gpio_put(LED_RED_PIN, 1);   // Vermelho
-            gpio_put(LED_GREEN_PIN, 1); // Verde (combina com vermelho para amarelo)
-            gpio_put(LED_BLUE_PIN, 0);  // Azul desligado
+            gpio_put(LED_RED_PIN, 1);   // Acende o LED vermelho
+            gpio_put(LED_GREEN_PIN, 1); // Acende o LED verde (combina com vermelho para amarelo)
+            gpio_put(LED_BLUE_PIN, 0);  // Desliga o LED azul
             break;
         default:
             gpio_put(LED_RED_PIN, 0);   // Desliga todos os LEDs
@@ -82,12 +82,12 @@ void set_rgb_color(ColorState color) {
 
 // Função para tocar um tom no buzzer
 void play_tone(uint32_t frequency, uint32_t duration_ms) {
-    uint32_t clock = 125000000;  // Clock do sistema (125 MHz)
-    uint32_t wrap = clock / frequency;  // Valor de "wrap" para o PWM
-    pwm_config config = pwm_get_default_config();
-    pwm_config_set_clkdiv(&config, 1.0f);  // Divisor de clock = 1
-    pwm_config_set_wrap(&config, wrap);
-    pwm_init(slice_num, &config, true);
+    uint32_t clock = 125000000;  // Define o clock do sistema como 125 MHz
+    uint32_t wrap = clock / frequency;  // Calcula o valor de "wrap" para o PWM
+    pwm_config config = pwm_get_default_config();  // Obtém a configuração padrão do PWM
+    pwm_config_set_clkdiv(&config, 1.0f);  // Define o divisor de clock como 1
+    pwm_config_set_wrap(&config, wrap);  // Define o valor de "wrap" no PWM
+    pwm_init(slice_num, &config, true);  // Inicializa o PWM com a configuração
 
     // Define o nível do PWM para 30% (volume mais baixo)
     pwm_set_chan_level(slice_num, channel, wrap * 0.3);
@@ -103,16 +103,16 @@ void play_tone(uint32_t frequency, uint32_t duration_ms) {
 void play_color_sound(ColorState color) {
     switch (color) {
         case MAGENTA:
-            play_tone(NOTE_C4, NOTE_DURATION);  // Dó
+            play_tone(NOTE_C4, NOTE_DURATION);  // Toca a nota Dó (C4)
             break;
         case GREEN:
-            play_tone(NOTE_D4, NOTE_DURATION);  // Ré
+            play_tone(NOTE_D4, NOTE_DURATION);  // Toca a nota Ré (D4)
             break;
         case BLUE:
-            play_tone(NOTE_E4, NOTE_DURATION);  // Mi
+            play_tone(NOTE_E4, NOTE_DURATION);  // Toca a nota Mi (E4)
             break;
         case YELLOW:
-            play_tone(NOTE_F4, NOTE_DURATION);  // Fá
+            play_tone(NOTE_F4, NOTE_DURATION);  // Toca a nota Fá (F4)
             break;
         default:
             break;
