@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <ctype.h>  // Para manipulação de caracteres
+#include <ctype.h> 
 #include "pico/stdlib.h"
-#include "pico/binary_info.h"  // Para informações binárias
+#include "pico/binary_info.h"
 #include "hardware/gpio.h"
 #include "hardware/pwm.h"
 #include "hardware/adc.h"
@@ -35,7 +35,7 @@
 
 // Estados das cores
 typedef enum {
-    MAGENTA,  // Substitui RED por MAGENTA
+    MAGENTA, 
     GREEN,
     BLUE,
     YELLOW,
